@@ -1,114 +1,115 @@
+
+
 # 🧬 Multi-Trait Human Profiling from Fingerprints using Deep Learning
 
 ![Python](https://img.shields.io/badge/Python-3.10-blue?style=for-the-badge&logo=python)
 ![TensorFlow](https://img.shields.io/badge/TensorFlow-2.x-orange?style=for-the-badge&logo=tensorflow)
 ![OpenCV](https://img.shields.io/badge/OpenCV-Computer%20Vision-green?style=for-the-badge&logo=opencv)
-![Streamlit](https://img.shields.io/badge/Streamlit-Web%20App-red?style=for-the-badge&logo=streamlit)
-![License](https://img.shields.io/badge/License-Academic-lightgrey?style=for-the-badge)
+![Streamlit](https://img.shields.io/badge/Streamlit-Web%20Application-red?style=for-the-badge&logo=streamlit)
 
 ---
 
 # 📖 Overview
 
-Traditional biological trait identification such as **blood group determination** requires invasive laboratory procedures. This project presents a **non-invasive deep learning framework** capable of simultaneously predicting:
+This project presents a **non-invasive deep learning framework** for predicting multiple biological traits—**Blood Group, Gender, and Finger Type**—using fingerprint images. Traditional biological trait identification often requires invasive laboratory procedures or manual examination. This system eliminates the need for physical samples by leveraging **two custom-designed 22-layer Convolutional Neural Networks (CNNs)** that automatically learn fingerprint ridge patterns and minutiae-level features directly from fingerprint images.
 
-- 🩸 Blood Group
-- 👤 Gender
-- ✋ Finger Type
-
-using only a fingerprint image.
-
-The system employs **two custom-designed 22-layer Convolutional Neural Networks (CNNs)** that automatically learn fingerprint ridge patterns and minutiae without handcrafted feature engineering.
-
-A user-friendly **Streamlit web application** allows users to upload a fingerprint and receive instant predictions in real time.
+The trained models are integrated into a **Streamlit web application**, enabling real-time prediction from a single uploaded fingerprint image for research and educational purposes.
 
 ---
 
-# 🎯 Project Highlights
+# 🎯 Objectives
 
-- ✅ Blood Group Prediction from Fingerprints
-- ✅ Gender Prediction
-- ✅ Finger Type Identification
-- ✅ Custom 22-Layer CNN Architecture
-- ✅ Real-Time Streamlit Deployment
-- ✅ End-to-End Automated Pipeline
-- ✅ No Manual Feature Extraction Required
+- Develop a deep learning model for fingerprint-based human profiling.
+- Predict **Blood Group**, **Gender**, and **Finger Type** from fingerprint images.
+- Build a non-invasive and automated biometric analysis system.
+- Deploy the trained models through a real-time web application.
 
 ---
 
-# 📊 Results
+# ✨ Features
 
-| Task | Classes | Accuracy |
-|------|---------|----------|
-| Blood Group Prediction | 8 | **97.8%** |
-| Gender + Finger Type Prediction | 20 | **96.7%** |
+- 🩸 Blood Group Prediction (8 Classes)
+- 👤 Gender Prediction
+- ✋ Finger Type Classification (20 Classes)
+- 🧠 Custom 22-Layer CNN Architecture
+- ⚡ Real-Time Streamlit Deployment
+- 🔍 Automatic Fingerprint Feature Learning
+- 📊 Confusion Matrix & Performance Evaluation
+
+---
+
+# 📊 Performance
+
+## Blood Group Prediction Model
+
+| Metric | Value |
+|---------|-------|
+| Training Accuracy | **97.82%** |
+| Validation Accuracy | **91.00%** |
+| Test Accuracy | **91.06%** |
+
+---
+
+## Gender & Finger-Type Prediction Model
+
+| Metric | Value |
+|---------|-------|
+| Training Accuracy | **80.44%** |
+| Validation Accuracy | **91.24%** |
+| Test Accuracy | **93.74%** |
 
 ---
 
 # 📂 Datasets
 
-Two publicly available fingerprint datasets from Kaggle were used.
+This project utilizes two publicly available fingerprint datasets from Kaggle.
 
 ---
 
-## 1️⃣ SOCOFing Dataset
+## 1️⃣ SOCOFing Dataset (Gender & Finger-Type)
 
-**🔗 Link**
-
-https://www.kaggle.com/datasets/ruizgara/socofing
+**🔗 Dataset:** https://www.kaggle.com/datasets/ruizgara/socofing
 
 ### Description
 
-SOCOFing (Sokoto Coventry Fingerprint Dataset) is one of the most widely used fingerprint datasets for biometric research.
+The **SOCOFing (Sokoto Coventry Fingerprint Dataset)** contains approximately **55,000 fingerprint images** collected from **600 individuals**.
 
-It contains fingerprint images collected from **600 individuals**, including fingerprints from all ten fingers.
+The dataset includes:
 
-The dataset consists of:
-
-- 6,000 Real fingerprint images
-- 49,273 Altered fingerprint images
+- Real fingerprint images
+- Altered fingerprint images
   - Altered-Easy
   - Altered-Medium
   - Altered-Hard
 
-For this project, **only the Real fingerprint images** were used.
-
-Each filename provides:
+Each fingerprint contains metadata including:
 
 - Subject ID
 - Gender
-- Hand
+- Left / Right Hand
 - Finger Type
 
-These labels were used to train a **20-class CNN** for simultaneous prediction of:
+The dataset was balanced into **20 classes** representing combinations of:
 
-- Gender
-- Finger Type
+- Male / Female
+- Left / Right Hand
+- Thumb
+- Index
+- Middle
+- Ring
+- Little
 
-### Dataset Structure
-
-```text
-SOCOFing/
-├── Real/
-└── Altered/
-    ├── Altered-Easy/
-    ├── Altered-Medium/
-    └── Altered-Hard/
-```
+This dataset was used for **Gender and Finger-Type Prediction**.
 
 ---
 
 ## 2️⃣ Fingerprint Dataset for Blood Group Classification
 
-**🔗 Link**
-
-https://www.kaggle.com/datasets/rohitpravinlohar/fingerprint-dataset-for-blood-group-classification
+**🔗 Dataset:** https://www.kaggle.com/datasets/rohitpravinlohar/fingerprint-dataset-for-blood-group-classification
 
 ### Description
 
-This dataset contains fingerprint images labeled according to their respective human blood groups.
-
-The dataset includes all eight major blood groups:
+This dataset contains **8,000 fingerprint images** distributed equally across the eight ABO and Rh blood groups:
 
 - A+
 - A-
@@ -119,55 +120,47 @@ The dataset includes all eight major blood groups:
 - O+
 - O-
 
-The dataset was used to train the **Blood Group Classification CNN**.
+Each blood group contains approximately **1,000 fingerprint images**, providing a balanced dataset for supervised learning.
 
----
-
-# 📌 Dataset Summary
-
-| Dataset | Purpose | Classes |
-|----------|----------|---------|
-| SOCOFing | Gender + Finger Type Prediction | 20 |
-| Blood Group Fingerprint Dataset | Blood Group Prediction | 8 |
+This dataset was used to train the **Blood Group Prediction CNN**.
 
 ---
 
 # 🧠 Model Architecture
 
-The project consists of **two independent custom CNN models**, each containing **22 layers**.
+The framework consists of **two independent custom 22-layer Convolutional Neural Networks (CNNs)**.
 
-## 🔹 Model 1 — Blood Group Prediction
+## 🔹 Model 1 – Blood Group Prediction
 
 - Input Size: **256 × 256**
 - Classes: **8**
 - Optimizer: Adam
-- Loss: Categorical Crossentropy
-- Output: Blood Group
+- Learning Rate: **0.001**
+- Loss Function: Categorical Crossentropy
 
 ---
 
-## 🔹 Model 2 — Gender & Finger Type Prediction
+## 🔹 Model 2 – Gender & Finger-Type Prediction
 
 - Input Size: **256 × 256**
 - Classes: **20**
 - Optimizer: Adam
-- Loss: Categorical Crossentropy
-- Output:
-  - Gender
-  - Finger Type
+- Learning Rate: **0.0001**
+- Loss Function: Categorical Crossentropy
 
 ---
 
-## CNN Components
+### CNN Components
 
-Each CNN includes:
+Each model consists of:
 
 - Convolution Layers
 - Batch Normalization
 - ReLU Activation
 - MaxPooling Layers
 - Dropout Layers
-- Fully Connected Layers
+- Flatten Layer
+- Dense Layers
 - Softmax Output Layer
 
 ---
@@ -176,33 +169,55 @@ Each CNN includes:
 
 ## 1. Data Collection
 
-- SOCOFing Dataset
 - Blood Group Fingerprint Dataset
+- SOCOFing Dataset
 
 ---
 
 ## 2. Image Preprocessing
 
 - Contrast Enhancement
+- Brightness Adjustment
+- Image Normalization
 - Image Resizing (256 × 256)
-- Normalization
 - Dataset Balancing
-- Train/Validation/Test Split
 
 ---
 
-## 3. Model Training
+## 3. Automatic Feature Learning
 
-- Custom 22-Layer CNN
+The CNN automatically learns hierarchical fingerprint features, including:
+
+### Global Features
+
+- Loops
+- Whorls
+- Arches
+
+### Minutiae Features
+
+- Ridge Endings
+- Ridge Bifurcations
+- Ridge Structures
+- Core Points
+
+---
+
+## 4. Model Training
+
+Both CNN models were trained using:
+
 - Adam Optimizer
 - Batch Normalization
 - Dropout Regularization
+- Early Stopping
+- Model Checkpointing
 
 ---
 
-## 4. Model Evaluation
+## 5. Model Evaluation
 
-Evaluation metrics include:
+The models were evaluated using:
 
 - Accuracy
 - Precision
@@ -212,26 +227,35 @@ Evaluation metrics include:
 
 ---
 
-## 5. Deployment
+## 6. Deployment
 
-The trained models are deployed using **Streamlit**.
+The trained models are integrated into a **Streamlit web application** that enables users to upload a fingerprint image and instantly obtain predictions for:
 
-Workflow:
+- Blood Group
+- Gender
+- Finger Type
 
-```
+along with confidence scores.
+
+---
+
+# 🏗 System Workflow
+
+```text
 Fingerprint Image
         │
         ▼
 Image Preprocessing
         │
-        ▼
-Blood Group CNN
-        │
-        ▼
-Gender + Finger CNN
-        │
-        ▼
-Prediction Results
+        ├──────────────┐
+        ▼              ▼
+Blood Group CNN    Gender & Finger CNN
+        │              │
+        └──────┬───────┘
+               ▼
+      Streamlit Web Application
+               ▼
+        Final Predictions
 ```
 
 ---
@@ -253,7 +277,7 @@ Prediction Results
 # 📁 Project Structure
 
 ```text
-Fingerprint-Human-Profiling/
+project/
 │
 ├── app.py
 ├── requirements.txt
@@ -264,12 +288,10 @@ Fingerprint-Human-Profiling/
 │   └── gender_finger_model.tflite
 │
 ├── dataset/
-│   ├── SOCOFing/
-│   └── BloodGroup/
+│   ├── BloodGroup/
+│   └── SOCOFing/
 │
 ├── notebooks/
-│
-├── utils/
 │
 └── assets/
 ```
@@ -281,11 +303,8 @@ Fingerprint-Human-Profiling/
 ## Clone Repository
 
 ```bash
-git clone https://github.com/yourusername/Fingerprint-Human-Profiling.git
-```
-
-```bash
-cd Fingerprint-Human-Profiling
+git clone https://github.com/your-username/project-name.git
+cd project-name
 ```
 
 ---
@@ -298,7 +317,7 @@ pip install -r requirements.txt
 
 ---
 
-## Run Application
+## Run the Application
 
 ```bash
 streamlit run app.py
@@ -306,83 +325,56 @@ streamlit run app.py
 
 ---
 
-# 📈 Model Optimization
-
-To reduce repository size and improve deployment performance:
-
-- TensorFlow Lite Conversion
-- Float16 Quantization
-
-Benefits:
-
-- Smaller model size (<25 MB)
-- Faster inference
-- Lower memory usage
-- Suitable for edge deployment
-
----
-
 # 📌 Applications
 
-- Digital Forensics
-- Criminal Investigation
+- Forensic Investigation
+- Emergency Healthcare
 - Biometric Authentication
-- Medical Assistance
 - Identity Verification
-- Smart Healthcare
-- Security Systems
+- Human Profiling Research
+- Smart Security Systems
 
 ---
 
 # 🔮 Future Scope
 
 - Clinical validation using larger datasets
-- Mobile deployment
-- Edge AI implementation
+- Edge-device deployment
+- Multi-modal biometric systems
 - Federated Learning
 - Explainable AI (XAI)
-- Multi-modal biometric fusion
-- Cloud deployment using Docker & Kubernetes
+- Cloud deployment
 
 ---
 
 # 👨‍💻 Authors
 
-**G. Praveenkumar**
-
-**V. Mounidharan**
-
-**P. J. Purushothaman**
+- **G. Praveenkumar**
+- **V. Mounidharan**
+- **P. J. Purushothaman**
 
 ### Faculty Mentor
 
-**Dr. A. Divya**
-
-Department of Electronics Engineering
-
-MIT Campus
-
+**Dr. A. Divya**  
+Assistant Professor (Sr. Gr.)  
+Department of Electronics Engineering  
+Madras Institute of Technology (MIT Campus)  
 Anna University, Chennai
 
 ---
 
 # 🙏 Acknowledgements
 
-We sincerely thank:
-
-- Anna University, MIT Campus
-- Department of Electronics Engineering
-- Kaggle Dataset Contributors
-- TensorFlow & Streamlit Communities
+The authors sincerely thank the **Department of Electronics Engineering, Madras Institute of Technology, Anna University**, **Dr. A. Divya**, and the contributors of the publicly available Kaggle datasets for their guidance and support throughout this work.
 
 ---
 
 # 📜 License
 
-This project has been developed **solely for academic and research purposes**.
+This project has been developed for **academic and research purposes only**.
 
-The datasets used remain the property of their respective authors and are subject to the licenses and terms provided on Kaggle.
+The datasets remain the property of their respective authors and are subject to their respective Kaggle licenses and terms of use.
 
 ---
 
-⭐ **If you found this project helpful, consider giving it a Star!**
+⭐ **If you found this project interesting, consider giving it a Star!**
