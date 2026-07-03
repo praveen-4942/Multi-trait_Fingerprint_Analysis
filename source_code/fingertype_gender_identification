@@ -1,0 +1,408 @@
+# Imports
+
+import os
+import numpy as np
+import cv2
+import matplotlib.pyplot as plt
+import seaborn as sns
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, Dropout, Flatten, Conv2D, MaxPool2D
+from tensorflow.keras.utils import to_categorical
+from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import confusion_matrix, classification_report
+
+
+# ---------------------------- Configuration ---------------------------- #
+
+img_size = 224
+img_width = 224
+num_classes = 20  # thumb, index, middle, ring, little
+
+# Replace these with actual dataset paths
+train_paths = [
+    "../input/socofing/SOCOFing/Altered/Altered-Easy",
+    "../input/socofing/SOCOFing/Altered/Altered-Medium",
+    "../input/socofing/SOCOFing/Altered/Altered-Hard"
+]
+test_path = "../input/socofing/SOCOFing/Real"
+import os
+import numpy as np
+import cv2
+
+# Assume img_size is defined somewhere before using these functions
+# For example: img_size = 96
+
+# ---------------------------- Functions ---------------------------- #
+
+def extract_label(img_path, train=True):
+    filename, _ = os.path.splitext(os.path.basename(img_path))
+    subject_id, etc = filename.split('__')
+    if train:
+        gender_code, lr_code, finger_code, _, _ = etc.split('_')
+    else:
+        gender_code, lr_code, finger_code, _ = etc.split('_')
+
+    # Decode gender
+    gender = 'Male' if gender_code == 'M' else 'Female'
+
+    # Decode left/right
+    lr = 'Left' if lr_code == 'Left' else 'Right'
+
+    # Decode finger type
+    if finger_code == 'thumb':
+        finger = 'thumb'
+    elif finger_code == 'index':
+        finger = 'index'
+    elif finger_code == 'middle':
+        finger = 'middle'
+    elif finger_code == 'ring':
+        finger = 'ring'
+    elif finger_code == 'little':
+        finger = 'little'
+    else:
+        raise ValueError("Unknown finger type: " + finger_code)
+
+    # Combine into one label
+    combined_label = f"{gender}_{lr}_{finger}"
+
+    return np.array([subject_id, combined_label], dtype=object)
+
+def loading_data(paths, train=True):
+    data = []
+    for path in paths:
+        print(f"Loading data from: {path}")
+        for img in os.listdir(path):
+            try:
+                img_array = cv2.imread(os.path.join(path, img), cv2.IMREAD_GRAYSCALE)
+                img_resize = cv2.resize(img_array, (img_size, img_size))
+                label = extract_label(os.path.join(path, img), train)
+                data.append([label[1], img_resize])  # label[1] is combined label
+            except Exception as e:
+                print(f"Skipping {img}: {e}")
+    return data
+
+def loading_test_data(path, train=False):
+    data = []
+    print(f"Loading test data from: {path}")
+    for img in os.listdir(path):
+        try:
+            img_array = cv2.imread(os.path.join(path, img), cv2.IMREAD_GRAYSCALE)
+            img_resize = cv2.resize(img_array, (img_size, img_size))
+            label = extract_label(os.path.join(path, img), train)
+            data.append([label[1], img_resize])
+        except Exception as e:
+            print(f"Skipping {img}: {e}")
+    return data
+
+import numpy as np
+from collections import Counter
+from sklearn.model_selection import train_test_split
+from tensorflow.keras.utils import to_categorical
+import random
+
+# ---------------------------- Load Data ---------------------------- #
+# Note: Ensure your 'loading_data' and 'loading_test_data' functions are updated to use
+# 'img_size' and 'img_width' for resizing images to (224, 224).
+train_data = []
+for path in train_paths:
+    train_data.extend(loading_data([path], train=True))
+
+test_data = loading_test_data(test_path, train=False)
+
+# ----------------- Organize data by class ----------------- #
+train_dict = {}
+for label, feature in train_data:
+    if label not in train_dict:
+        train_dict[label] = []
+    train_dict[label].append(feature)
+
+# Find the minimum number of images across all classes
+min_train_count = min(len(imgs) for imgs in train_dict.values())
+
+# Balance the training data
+X, y = [], []
+for label, imgs in train_dict.items():
+    selected_imgs = random.sample(imgs, min_train_count)
+    X.extend(selected_imgs)
+    y.extend([label]*len(selected_imgs))
+
+X = np.array(X).reshape(-1, img_size, img_width, 1) / 255.0
+y = np.array(y)
+
+# ----------------- Test Data ----------------- #
+test_dict = {}
+for label, feature in test_data:
+    if label not in test_dict:
+        test_dict[label] = []
+    test_dict[label].append(feature)
+
+min_test_count = min(len(imgs) for imgs in test_dict.values())
+
+X_test, y_test = [], []
+for label, imgs in test_dict.items():
+    selected_imgs = random.sample(imgs, min_test_count)
+    X_test.extend(selected_imgs)
+    y_test.extend([label]*len(selected_imgs))
+
+X_test = np.array(X_test).reshape(-1, img_size, img_width, 1) / 255.0
+y_test = np.array(y_test)
+
+# ----------------- Label Mapping ----------------- #
+all_labels = sorted(list(set(y.tolist() + y_test.tolist())))
+label_to_index = {label: idx for idx, label in enumerate(all_labels)}
+
+y = np.array([label_to_index[label] for label in y])
+y_test = np.array([label_to_index[label] for label in y_test])
+
+# ---------------- Split Train/Validation ----------------- #
+X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.2, random_state=1, stratify=y)
+
+# One-hot encode
+y_train = to_categorical(y_train, num_classes)
+y_val = to_categorical(y_val, num_classes)
+y_test = to_categorical(y_test, num_classes)
+
+# ---------------- Print Class Counts ----------------- #
+def print_class_counts(y_array, description):
+    counts = Counter(np.argmax(y_array, axis=1))
+    print(f"\n{description} class distribution:")
+    for idx in range(num_classes):
+        print(f"Class {all_labels[idx]}: {counts.get(idx,0)}")
+
+print_class_counts(y_train, "Training")
+print_class_counts(y_val, "Validation")
+print_class_counts(y_test, "Test")
+
+print("\nTotal samples:")
+print("Training:", X_train.shape[0])
+print("Validation:", X_val.shape[0])
+print("Test:", X_test.shape[0])
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, Dropout, Flatten, Conv2D, MaxPool2D
+from tensorflow.keras.optimizers import Adam
+
+# Assume img_size and num_classes are defined, e.g.,
+# img_size = 224
+# num_classes = 20
+
+# ---------------------------- Model Definition with Added Layers ---------------------------- #
+
+model = Sequential()
+model.add(Conv2D(32, kernel_size=(5, 5), padding='Same', activation='relu', input_shape=(img_size, img_size, 1)))
+model.add(Conv2D(32, kernel_size=(5, 5), padding='Same', activation='relu'))
+model.add(MaxPool2D(pool_size=(2, 2)))
+model.add(Dropout(0.25))
+
+model.add(Conv2D(64, kernel_size=(3, 3), padding='Same', activation='relu'))
+model.add(Conv2D(64, kernel_size=(3, 3), padding='Same', activation='relu'))
+model.add(MaxPool2D(pool_size=(2, 2), strides=(2, 2)))
+model.add(Dropout(0.25))
+
+# Added a new block of layers
+model.add(Conv2D(128, kernel_size=(3, 3), padding='Same', activation='relu'))
+model.add(Conv2D(128, kernel_size=(3, 3), padding='Same', activation='relu'))
+model.add(MaxPool2D(pool_size=(2, 2), strides=(2, 2)))
+model.add(Dropout(0.25))
+
+model.add(Flatten())
+model.add(Dense(100, activation='relu'))
+model.add(Dropout(0.5))
+model.add(Dense(num_classes, activation='softmax'))
+
+# Compile the model
+optimizer = Adam(learning_rate=0.0001)
+model.compile(optimizer=optimizer, loss='categorical_crossentropy', metrics=['accuracy'])
+
+# Print the model summary
+model.summary()
+print(label_to_index)
+# ---------------------------- Callbacks ---------------------------- #
+
+callbacks = [
+    EarlyStopping(monitor='val_accuracy', patience=10, verbose=1, restore_best_weights=True),
+    ModelCheckpoint("finger_model.h5", monitor='val_accuracy', save_best_only=True, verbose=1),
+    ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=5, min_lr=0.00001, verbose=1)
+]
+
+# ---------------------------- Model Training ---------------------------- #
+# Since data augmentation is not required, the model is trained directly on the data.
+print("Starting model training without data augmentation...")
+
+history = model.fit(
+    X_train,y_train,
+    batch_size=32,
+    epochs=50,
+    validation_data=(X_val, y_val),
+    verbose=1,
+    callbacks=callbacks
+)
+
+model.save("Finger+gender_model_100.h5")
+
+import numpy as np
+from sklearn.metrics import confusion_matrix, classification_report
+import seaborn as sns
+import matplotlib.pyplot as plt
+from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau
+
+# ---------------------------- Evaluation ---------------------------- #
+
+# 1. Print Training, Validation, and Test Accuracy
+print("\n--- Model Accuracies ---")
+train_acc = history.history['acc'][-1]
+val_acc = history.history['val_acc'][-1]
+test_loss, test_acc = model.evaluate(X_test, y_test, verbose=0)
+
+print(f"Training Accuracy: {train_acc*100:.2f}%")
+print(f"Validation Accuracy: {val_acc*100:.2f}%")
+print(f"Test Accuracy: {test_acc*100:.2f}%")
+
+
+
+
+import numpy as np
+from sklearn.metrics import confusion_matrix, classification_report
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+# ---------------------------- Class Labels ---------------------------- #
+class_indices = {
+    'Female_Left_index': 0, 'Female_Left_little': 1, 'Female_Left_middle': 2,
+    'Female_Left_ring': 3, 'Female_Left_thumb': 4, 'Female_Right_index': 5,
+    'Female_Right_little': 6, 'Female_Right_middle': 7, 'Female_Right_ring': 8,
+    'Female_Right_thumb': 9, 'Male_Left_index': 10, 'Male_Left_little': 11,
+    'Male_Left_middle': 12, 'Male_Left_ring': 13, 'Male_Left_thumb': 14,
+    'Male_Right_index': 15, 'Male_Right_little': 16, 'Male_Right_middle': 17,
+    'Male_Right_ring': 18, 'Male_Right_thumb': 19
+}
+# Reverse dictionary (index → label)
+all_labels = [k for k, v in sorted(class_indices.items(), key=lambda x: x[1])]
+
+# ---------------------------- Predictions ---------------------------- #
+y_pred_probs = model.predict(X_test)
+y_pred_classes = np.argmax(y_pred_probs, axis=1)
+y_true_classes = np.argmax(y_test, axis=1)
+
+# ---------------------------- Confusion Matrix ---------------------------- #
+conf_matrix = confusion_matrix(y_true_classes, y_pred_classes)
+
+plt.figure(figsize=(8, 8))
+sns.heatmap(conf_matrix, annot=True, fmt='d', cmap='Blues',
+            xticklabels=all_labels, yticklabels=all_labels)
+plt.title('Confusion Matrix')
+plt.ylabel('True Label')
+plt.xlabel('Predicted Label')
+plt.show()
+
+print(conf_matrix)
+
+# ---------------------------- Classification Report ---------------------------- #
+print("\n--- Classification Report ---")
+class_report = classification_report(
+    y_true_classes, 
+    y_pred_classes,
+    target_names=all_labels
+)
+print(class_report)
+
+
+
+model.save("200.h5")
+import numpy as np
+import cv2
+import json
+from tensorflow.keras.models import load_model
+
+# ---------------------------- Configuration ---------------------------- #
+
+img_size = 224
+model_path = '/kaggle/working/200.h5'  # Ensure this file is available in the working directory
+
+# Label mapping from your print output
+label_to_index = {
+    'Female_Left_index': 0, 'Female_Left_little': 1, 'Female_Left_middle': 2, 'Female_Left_ring': 3, 'Female_Left_thumb': 4,
+    'Female_Right_index': 5, 'Female_Right_little': 6, 'Female_Right_middle': 7, 'Female_Right_ring': 8, 'Female_Right_thumb': 9,
+    'Male_Left_index': 10, 'Male_Left_little': 11, 'Male_Left_middle': 12, 'Male_Left_ring': 13, 'Male_Left_thumb': 14,
+    'Male_Right_index': 15, 'Male_Right_little': 16, 'Male_Right_middle': 17, 'Male_Right_ring': 18, 'Male_Right_thumb': 19
+}
+index_to_label = {idx: label for label, idx in label_to_index.items()}
+
+# ---------------------------- Prediction Function ---------------------------- #
+
+def predict_finger_type(img_path):
+    model = load_model(model_path)
+
+    img = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
+    if img is None:
+        raise ValueError(f"Image not found or cannot be read: {img_path}")
+
+    img_resized = cv2.resize(img, (img_size, img_size))
+    img_normalized = img_resized / 255.0
+    img_input = img_normalized.reshape(1, img_size, img_size, 1)
+
+    pred_probs = model.predict(img_input, verbose=0)[0]
+    pred_class = np.argmax(pred_probs)
+    combined_label = index_to_label[pred_class]
+
+    print(f"Predicted Finger Type: {combined_label}")
+    print(f"Confidence: {pred_probs[pred_class]*100:.2f}%")
+
+    return combined_label, pred_probs[pred_class]
+
+# ---------------------------- Example Usage ---------------------------- #
+
+# Replace these paths with the actual paths to your images
+test_image_path1 = '/kaggle/input/socofing/SOCOFing/Altered/Altered-Easy/100__M_Left_index_finger_CR.BMP'
+test_image_path2 = '/kaggle/input/socofing/SOCOFing/Altered/Altered-Medium/103__F_Left_ring_finger_Obl.BMP'
+test_image_path3 = '/kaggle/input/socofing/SOCOFing/Real/108__M_Right_thumb_finger.BMP'
+
+test_image_path4 = '/kaggle/input/socofing/SOCOFing/Real/109__F_Right_little_finger.BMP'
+test_image_path5 = '/kaggle/input/socofing/SOCOFing/Real/109__F_Left_little_finger.BMP'
+test_image_path6 = '/kaggle/input/socofing/SOCOFing/Real/109__F_Right_thumb_finger.BMP'
+test_image_path7 = '/kaggle/input/socofing/SOCOFing/Real/103__F_Left_thumb_finger.BMP'
+test_image_path8 = '/kaggle/input/socofing/SOCOFing/Real/109__F_Right_middle_finger.BMP'
+test_image_path9 = '/kaggle/input/socofing/SOCOFing/Real/109__F_Left_middle_finger.BMP'
+test_image_path10 ='/kaggle/input/socofing/SOCOFing/Real/109__F_Right_ring_finger.BMP'
+test_image_path11 ='/kaggle/input/socofing/SOCOFing/Real/109__F_Left_ring_finger.BMP'
+test_image_path12 ='/kaggle/input/socofing/SOCOFing/Real/109__F_Right_index_finger.BMP'
+test_image_path13 ='/kaggle/input/socofing/SOCOFing/Real/103__F_Left_index_finger.BMP'
+test_image_path14 ='/kaggle/input/socofing/SOCOFing/Real/100__M_Right_little_finger.BMP'
+test_image_path15 ='/kaggle/input/socofing/SOCOFing/Real/101__M_Left_little_finger.BMP'
+test_image_path16 ='/kaggle/input/socofing/SOCOFing/Real/102__M_Right_thumb_finger.BMP'
+test_image_path17 ='/kaggle/input/socofing/SOCOFing/Real/103__F_Left_thumb_finger.BMP'
+test_image_path18 ='/kaggle/input/socofing/SOCOFing/Real/101__M_Right_ring_finger.BMP'
+test_image_path19 ='/kaggle/input/socofing/SOCOFing/Real/101__M_Left_ring_finger.BMP'
+test_image_path20 ='/kaggle/input/socofing/SOCOFing/Real/102__M_Right_middle_finger.BMP'
+test_image_path21 ='/kaggle/input/socofing/SOCOFing/Real/101__M_Left_middle_finger.BMP'
+test_image_path22 ='/kaggle/input/socofing/SOCOFing/Real/100__M_Right_index_finger.BMP'
+test_image_path23 ='/kaggle/input/socofing/SOCOFing/Real/100__M_Left_index_finger.BMP'
+
+# Predict finger type
+predict_finger_type(test_image_path1)
+predict_finger_type(test_image_path2)
+predict_finger_type(test_image_path3)
+
+print("\n Female -------> L T M R I")
+predict_finger_type(test_image_path4)
+predict_finger_type(test_image_path5)
+predict_finger_type(test_image_path6)
+predict_finger_type(test_image_path7)
+predict_finger_type(test_image_path8)
+predict_finger_type(test_image_path9)
+predict_finger_type(test_image_path10)
+predict_finger_type(test_image_path11)
+predict_finger_type(test_image_path12)
+predict_finger_type(test_image_path13)
+
+print("\n Male -------> L T R M I")
+predict_finger_type(test_image_path14)
+predict_finger_type(test_image_path15)
+predict_finger_type(test_image_path16)
+predict_finger_type(test_image_path17)
+predict_finger_type(test_image_path18)
+predict_finger_type(test_image_path19)
+predict_finger_type(test_image_path20)
+predict_finger_type(test_image_path21)
+predict_finger_type(test_image_path22)
+predict_finger_type(test_image_path23)
