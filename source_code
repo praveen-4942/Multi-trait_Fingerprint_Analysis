@@ -1,0 +1,227 @@
+import os
+import numpy as np
+import matplotlib.pyplot as plt
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Conv2D, MaxPooling2D, Dropout, Flatten, Dense, BatchNormalization
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from tensorflow.keras.callbacks import ModelCheckpoint, ReduceLROnPlateau
+from sklearn.metrics import confusion_matrix, classification_report
+import seaborn as sns
+from sklearn.model_selection import train_test_split
+
+import os
+import shutil
+import random
+from PIL import Image
+from sklearn.model_selection import train_test_split
+# Paths
+input_dir = '/kaggle/input/fingerprint-based-blood-group-detection/dataset'              # Your original dataset folder
+output_dir = 'output_dataset'      # Where you want train/val/test folders
+classes = os.listdir(input_dir)
+
+# Split ratios
+train_ratio = 0.75
+val_ratio = 0.15
+test_ratio = 0.15
+
+# Create output folders
+for split in ['train', 'val', 'test']:
+    for cls in classes:
+        os.makedirs(os.path.join(output_dir, split, cls), exist_ok=True)
+
+# Function to convert and save as .bmp
+def convert_to_bmp(src_path, dst_path):
+    with Image.open(src_path) as img:
+        img = img.convert('RGB')
+        img.save(dst_path, 'BMP')
+
+# Go through each class
+for cls in classes:
+    class_path = os.path.join(input_dir, cls)
+    image_files = [f for f in os.listdir(class_path) if not f.startswith('.')]
+
+    # Shuffle and split
+    train_files, temp_files = train_test_split(image_files, test_size=(1 - train_ratio), random_state=42)
+    val_files, test_files = train_test_split(temp_files, test_size=(test_ratio / (test_ratio + val_ratio)), random_state=42)
+
+    splits = {
+        'train': train_files,
+        'val': val_files,
+        'test': test_files
+    }
+
+    # Process each split
+    for split_name, file_list in splits.items():
+        for fname in file_list:
+            src = os.path.join(input_dir, cls, fname)
+            dst = os.path.join(output_dir, split_name, cls, os.path.splitext(fname)[0] + '.bmp')
+            try:
+                convert_to_bmp(src, dst)
+            except Exception as e:
+                print(f"Failed to convert {src}: {e}")
+# Image dimensions
+IMG_HEIGHT = 128
+IMG_WIDTH = 128
+BATCH_SIZE = 8
+
+# Folder paths
+train_dir = '/kaggle/working/output_dataset/train'
+val_dir = '/kaggle/working/output_dataset/val'
+test_dir = '/kaggle/input/finger-print-based-blood-group-dataset/dataset_blood_group'
+# Data Generators
+train_datagen = ImageDataGenerator(rescale=1./255)
+val_datagen = ImageDataGenerator(rescale=1./255)
+test_datagen = ImageDataGenerator(rescale=1./255)
+
+train_generator = train_datagen.flow_from_directory(
+    train_dir, target_size=(IMG_HEIGHT, IMG_WIDTH), batch_size=BATCH_SIZE, class_mode='categorical'
+)
+val_generator = val_datagen.flow_from_directory(
+    val_dir, target_size=(IMG_HEIGHT, IMG_WIDTH), batch_size=BATCH_SIZE, class_mode='categorical'
+)
+test_generator = test_datagen.flow_from_directory(
+    test_dir, target_size=(IMG_HEIGHT, IMG_WIDTH), batch_size=BATCH_SIZE, class_mode='categorical', shuffle=False
+)
+
+class_names = list(train_generator.class_indices.keys())
+num_classes = len(class_names)
+# Efficient CNN Model
+model = Sequential([
+    Conv2D(32, (3, 3), activation='relu', padding='same', input_shape=(IMG_HEIGHT, IMG_WIDTH, 3)),
+    BatchNormalization(),
+    Conv2D(32, (3, 3), activation='relu', padding='same'),
+    BatchNormalization(),
+    MaxPooling2D(2, 2),
+    Dropout(0.25),
+
+    Conv2D(64, (3, 3), activation='relu', padding='same'),
+    BatchNormalization(),
+    Conv2D(64, (3, 3), activation='relu', padding='same'),
+    BatchNormalization(),
+    MaxPooling2D(2, 2),
+    Dropout(0.25),
+
+    Conv2D(128, (3, 3), activation='relu', padding='same'),
+    BatchNormalization(),
+    Conv2D(128, (3, 3), activation='relu', padding='same'),
+    BatchNormalization(),
+    MaxPooling2D(2, 2),
+    Dropout(0.4),
+
+    Flatten(),
+    Dense(256, activation='relu'),
+    BatchNormalization(),
+    Dropout(0.5),
+    Dense(num_classes, activation='softmax')
+])
+
+model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+model.summary()
+# Callbacks
+checkpoint = ModelCheckpoint('best_model_ever.h5', monitor='val_accuracy', save_best_only=True, verbose=1)
+reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.3, patience=4, min_lr=1e-6, verbose=1)
+
+# Training
+history = model.fit(
+    train_generator,
+    validation_data=val_generator,
+    epochs=30,
+    callbacks=[checkpoint, reduce_lr],
+    shuffle=True
+)
+# Evaluate on test set
+Y_pred = model.predict(test_generator)
+y_pred = np.argmax(Y_pred, axis=1)
+y_true = test_generator.classes
+# 1. Training Accuracy (last epoch)
+train_accuracy = history.history['accuracy'][-1] * 100
+
+# 2. Validation Accuracy (last epoch)
+val_accuracy = history.history['val_accuracy'][-1] * 100
+
+# 3. Test Accuracy (from evaluation)
+test_loss, test_accuracy = model.evaluate(test_generator, verbose=0)
+test_accuracy *= 100
+
+# 4. Print all accuracies
+print(f"Training Accuracy:   {train_accuracy:.2f}%")
+print(f"Validation Accuracy: {val_accuracy:.2f}%")
+print(f"Test Accuracy:       {test_accuracy:.2f}%")
+
+model.save("BG.h5")
+import matplotlib.pyplot as plt
+
+# Plot Accuracy
+plt.figure(figsize=(8,6))
+plt.plot(history.history['accuracy'], label='Train Accuracy')
+plt.plot(history.history['val_accuracy'], label='Validation Accuracy')
+plt.title('Model Accuracy')
+plt.xlabel('Epochs')
+plt.ylabel('Accuracy')
+plt.legend(loc='lower right')
+plt.grid(True)
+plt.show()
+
+# Plot Loss
+plt.figure(figsize=(8,6))
+plt.plot(history.history['loss'], label='Train Loss')
+plt.plot(history.history['val_loss'], label='Validation Loss')
+plt.title('Model Loss')
+plt.xlabel('Epochs')
+plt.ylabel('Loss')
+plt.legend(loc='upper right')
+plt.grid(True)
+plt.show()
+
+# Confusion Matrix
+cm = confusion_matrix(y_true, y_pred)
+plt.figure(figsize=(10, 8))
+sns.heatmap(cm, annot=True, fmt='d', xticklabels=class_names, yticklabels=class_names, cmap="Blues")
+plt.xlabel('Predicted')
+plt.ylabel('True')
+plt.title('Confusion Matrix')
+plt.show()
+
+# Classification Report
+print(classification_report(y_true, y_pred, target_names=class_names))
+#Load best model
+from tensorflow.keras.models import load_model
+model = load_model('FINGERPRINTS_BLOODGROUP.h5')
+from tensorflow.keras.preprocessing import image
+import numpy as np
+
+# Define class names (in the order the model was trained)
+class_names = ['A_pos', 'A_neg', 'AB_pos', 'AB_neg', 'B_pos', 'B_neg', 'O_pos', 'O_neg']  # Update as needed
+
+# Function to predict a single image
+def predict_image(img_path):
+    img = image.load_img(img_path, target_size=(128, 128))  # Change size if needed
+    img_array = image.img_to_array(img) / 255.0
+    img_array = np.expand_dims(img_array, axis=0)  # Make batch of size 1
+    prediction = model.predict(img_array)
+    predicted_index = np.argmax(prediction[0])
+    predicted_label = class_names[predicted_index]
+    print(f" Predicted: {predicted_label}")
+
+# 🔽 Predict each image (provide full or relative paths)
+predict_image('/kaggle/input/bloodgroup-maunal/AB.png')
+predict_image('/kaggle/input/bloodgroup-maunal/B.png')
+predict_image('/kaggle/input/finger-print-based-blood-group-dataset/dataset_blood_group/A+/cluster_0_1005.BMP')
+predict_image('/kaggle/input/finger-print-based-blood-group-dataset/dataset_blood_group/A+/cluster_0_1029.BMP')
+predict_image('/kaggle/input/finger-print-based-blood-group-dataset/dataset_blood_group/A+/cluster_0_1075.BMP')
+
+print("\n O+ (3) AND O- (3)")
+predict_image('/kaggle/input/finger-print-based-blood-group-dataset/dataset_blood_group/O+/cluster_6_102.BMP')
+predict_image('/kaggle/input/finger-print-based-blood-group-dataset/dataset_blood_group/O+/cluster_6_1057.BMP')
+predict_image('/kaggle/input/finger-print-based-blood-group-dataset/dataset_blood_group/O+/cluster_6_1065.BMP')
+predict_image('/kaggle/input/finger-print-based-blood-group-dataset/dataset_blood_group/O-/cluster_7_1099.BMP')
+predict_image('/kaggle/input/finger-print-based-blood-group-dataset/dataset_blood_group/O-/cluster_7_1127.BMP')
+predict_image('/kaggle/input/finger-print-based-blood-group-dataset/dataset_blood_group/O-/cluster_7_1043.BMP')
+
+
+
+print("A+, A-, B+, B-")
+predict_image('/kaggle/input/qwertyui/Screenshot 2025-09-17 205439.png')
+predict_image('/kaggle/input/qwertyui/Screenshot 2025-09-17 205552.png')
+predict_image('/kaggle/input/qwertyui/Screenshot 2025-09-17 205612.png')
+predict_image('/kaggle/input/qwertyui/Screenshot 2025-09-17 205624.png')
